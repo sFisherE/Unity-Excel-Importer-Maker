@@ -6,6 +6,7 @@ using UnityEditor;
 using System.IO;
 using NPOI.SS.UserModel;
 using NPOI.HSSF.UserModel;
+using NPOI.XSSF.UserModel;
 
 using System.Collections.Generic;
 using System.Text;
@@ -96,7 +97,7 @@ public class ExcelImporterMaker : EditorWindow
     private string fileName = string.Empty;
     private static string s_key_prefix = "terasurware.exel-importer-maker.";
 	
-    [MenuItem("Assets/XLS Import Settings...")]
+    [MenuItem("Assets/XLS XLSX Import Settings...")]
     static void ExportExcelToAssetbundle()
     {
         foreach (Object obj in Selection.objects)
@@ -110,8 +111,14 @@ public class ExcelImporterMaker : EditorWindow
 		
             using (FileStream stream = File.Open (window.filePath, FileMode.Open, FileAccess.Read))
             {
-			
-                IWorkbook book = new HSSFWorkbook(stream);
+                string ext = Path.GetExtension(window.filePath);
+                IWorkbook book = null;
+                if (ext==".xls")
+                    book = new HSSFWorkbook(stream);
+                else if (ext==".xlsx")
+                    book = new XSSFWorkbook(stream);
+                else
+                    Debug.LogError("wrong file");
                 
 
                 for (int i = 0; i < book.NumberOfSheets; ++i)

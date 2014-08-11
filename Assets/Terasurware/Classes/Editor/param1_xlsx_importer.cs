@@ -6,6 +6,7 @@ using System.Xml.Serialization;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
+
 public class param1_xlsx_importer : AssetPostprocessor {
 	private static readonly string filePath = "Assets/ExcelData/param1_xlsx.xlsx";
 	private static readonly string exportPath = "Assets/ExcelData/param1_xlsx.asset";
@@ -26,7 +27,14 @@ public class param1_xlsx_importer : AssetPostprocessor {
 			
 			data.sheets.Clear ();
 			using (FileStream stream = File.Open (filePath, FileMode.Open, FileAccess.Read)) {
-				IWorkbook book = new XSSFWorkbook (stream);
+                string ext = Path.GetExtension(filePath);
+                IWorkbook book = null;
+                if (ext==".xls")
+                    book = new HSSFWorkbook(stream);
+                else if (ext==".xlsx")
+                    book = new XSSFWorkbook(stream);
+                else
+                    Debug.LogError("wrong file");
 				
 				foreach(string sheetName in sheetNames) {
 					ISheet sheet = book.GetSheet(sheetName);
