@@ -6,11 +6,11 @@ using UnityEditor;
 using System.IO;
 using NPOI.SS.UserModel;
 using NPOI.HSSF.UserModel;
-
+using NPOI.XSSF.UserModel;
 using System.Collections.Generic;
 using System.Text;
 
-public class ExcelImporterMaker : EditorWindow
+public class ExcelImporterMaker_xlsx : EditorWindow
 {
     private Vector2 curretScroll = Vector2.zero;
 
@@ -96,23 +96,22 @@ public class ExcelImporterMaker : EditorWindow
     private string fileName = string.Empty;
     private static string s_key_prefix = "terasurware.exel-importer-maker.";
 	
-    [MenuItem("Assets/XLS Import Settings...")]
-    static void ExportExcelToAssetbundle()
+    [MenuItem("Assets/XLSX Import Settings...")]
+    static void ExportXLSXExcelToAssetbundle()
     {
         foreach (Object obj in Selection.objects)
         {
-			
-		
-            var window = ScriptableObject.CreateInstance<ExcelImporterMaker>();
+            var window = ScriptableObject.CreateInstance<ExcelImporterMaker_xlsx>();
             window.filePath = AssetDatabase.GetAssetPath(obj);
             window.fileName = Path.GetFileNameWithoutExtension(window.filePath);
-		
-		
-            using (FileStream stream = File.Open (window.filePath, FileMode.Open, FileAccess.Read))
+
+
+            using (FileStream stream = File.Open(window.filePath, FileMode.Open, FileAccess.Read))
             {
-			
-                IWorkbook book = new HSSFWorkbook(stream);
-                
+                IWorkbook book = new XSSFWorkbook(stream);
+
+                //IWorkbook book = new HSSFWorkbook(stream);
+
 
                 for (int i = 0; i < book.NumberOfSheets; ++i)
                 {
@@ -122,7 +121,7 @@ public class ExcelImporterMaker : EditorWindow
                     sht.isEnable = EditorPrefs.GetBool(s_key_prefix + window.fileName + ".sheet." + sht.sheetName, true);
                     window.sheetList.Add(sht);
                 }
-			
+
                 ISheet sheet = book.GetSheetAt(0);
 
                 window.className = EditorPrefs.GetString(s_key_prefix + window.fileName + ".className", "Entity_" + sheet.SheetName);
@@ -131,7 +130,7 @@ public class ExcelImporterMaker : EditorWindow
 
                 IRow titleRow = sheet.GetRow(0);
                 IRow dataRow = sheet.GetRow(1);
-                for (int i=0; i < titleRow.LastCellNum; i++)
+                for (int i = 0; i < titleRow.LastCellNum; i++)
                 {
                     ExcelRowParameter lastParser = null;
                     ExcelRowParameter parser = new ExcelRowParameter();
@@ -147,7 +146,7 @@ public class ExcelImporterMaker : EditorWindow
                     // array support
                     if (window.typeList.Count > 0)
                     {
-                        lastParser = window.typeList [window.typeList.Count - 1];
+                        lastParser = window.typeList[window.typeList.Count - 1];
                         if (lastParser.isArray && parser.isArray && lastParser.name.Equals(parser.name))
                         {
                             // trailing array items must be the same as the top type
@@ -158,7 +157,7 @@ public class ExcelImporterMaker : EditorWindow
                             continue;
                         }
                     }
-				
+
                     if (cell.CellType != CellType.Unknown && cell.CellType != CellType.Blank)
                     {
                         parser.isEnable = true;
@@ -168,12 +167,14 @@ public class ExcelImporterMaker : EditorWindow
                             if (EditorPrefs.HasKey(s_key_prefix + window.fileName + ".type." + parser.name))
                             {
                                 parser.type = (ValueType)EditorPrefs.GetInt(s_key_prefix + window.fileName + ".type." + parser.name);
-                            } else
+                            }
+                            else
                             {
                                 string sampling = cell.StringCellValue;
                                 parser.type = ValueType.STRING;
                             }
-                        } catch
+                        }
+                        catch
                         {
                         }
                         try
@@ -181,12 +182,14 @@ public class ExcelImporterMaker : EditorWindow
                             if (EditorPrefs.HasKey(s_key_prefix + window.fileName + ".type." + parser.name))
                             {
                                 parser.type = (ValueType)EditorPrefs.GetInt(s_key_prefix + window.fileName + ".type." + parser.name);
-                            } else
+                            }
+                            else
                             {
                                 double sampling = cell.NumericCellValue;
                                 parser.type = ValueType.DOUBLE;
                             }
-                        } catch
+                        }
+                        catch
                         {
                         }
                         try
@@ -194,19 +197,21 @@ public class ExcelImporterMaker : EditorWindow
                             if (EditorPrefs.HasKey(s_key_prefix + window.fileName + ".type." + parser.name))
                             {
                                 parser.type = (ValueType)EditorPrefs.GetInt(s_key_prefix + window.fileName + ".type." + parser.name);
-                            } else
+                            }
+                            else
                             {
                                 bool sampling = cell.BooleanCellValue;
                                 parser.type = ValueType.BOOL;
                             }
-                        } catch
+                        }
+                        catch
                         {
                         }
                     }
-				
+
                     window.typeList.Add(parser);
                 }
-			
+
                 window.Show();
             }
         }
@@ -247,7 +252,7 @@ public class ExcelImporterMaker : EditorWindow
 	
     void ExportImporter()
     {
-        string templateFilePath = (sepalateSheet) ? "Assets/Terasurware/Editor/ExportTemplate2.txt" : "Assets/Terasurware/Editor/ExportTemplate.txt";
+        string templateFilePath = (sepalateSheet) ? "Assets/Terasurware/Editor/ExportTemplate2_xlsx.txt" : "Assets/Terasurware/Editor/ExportTemplate_xlsx.txt";
 
         string importerTemplate = File.ReadAllText(templateFilePath);
 		
