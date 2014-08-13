@@ -2,32 +2,6 @@
 
 ---
 
-##How To Use(E)
-
-1. import xls file  
-![Alt text](https://github.com/tsubaki/Unity-Excel-Importer-Maker/blob/gh-pages/import%20excel.jpg?raw=true)
-
-
-2. select xls file and **Create XLS Importer**  
-![Alt text](https://github.com/tsubaki/Unity-Excel-Importer-Maker/blob/gh-pages/create%20xls%20importer.jpg?raw=true)
-
-3. Push **create** button. then, it make importer in Terasurware/Classes/Editor.  
-![Alt text](https://github.com/tsubaki/Unity-Excel-Importer-Maker/raw/gh-pages/push%20create%20button.jpg)
-
-4. **ReImport the xls file**. so it make scriptable object same xls parameter.  
-![Alt text](https://github.com/tsubaki/Unity-Excel-Importer-Maker/blob/gh-pages/scriptable%20object.jpg?raw=true)
-
-##importer settings 
-
-The class name : sheet name.  
-The parameter name : header parameter.  
-The parameter type : cell type. 
-The asset file name : xls file name. 
-  
-![Alt text](https://github.com/tsubaki/Unity-Excel-Importer-Maker/blob/gh-pages/importer%20settings.jpg?raw=true)
-
-#日本語資料
--  [Excelでデータを管理してUnity iOS/Androidで使うワークフローをノーコーディングで使えるようにした](http://terasur.blog.fc2.com/blog-entry-588.html)
--  [Unity-Excel-Importer-Maker 配列型に対応](http://terasur.blog.fc2.com/blog-entry-606.html)
--  [Unity-Excel-Importer-Makerのマルチシートに対応](http://terasur.blog.fc2.com/blog-entry-626.html)
--  [Excel Importer、同一ブックの複数フォーマット出力機能を追加](http://terasur.blog.fc2.com/blog-entry-700.html)
+1.为了处理xlsx文件格式，引入了新版的npoi，但是因为兼容性的关系，部分文件处理失败。所以引入了一种中间文件txt，通过外部exe工具根据excel文件生成txt文件，然后内部工具根据txt生成类。
+2.流程上复杂了一些，但是没有找到合适的xlsx解析库，所以没办法，只能暂时这么处理了
+3.使用方法和之前是一样的
