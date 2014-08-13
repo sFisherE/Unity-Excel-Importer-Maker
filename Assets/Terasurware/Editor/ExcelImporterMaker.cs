@@ -1,394 +1,240 @@
-﻿#pragma warning disable 0219
-
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using UnityEditor;
 using System.IO;
-using NPOI.SS.UserModel;
-using NPOI.HSSF.UserModel;
-using NPOI.XSSF.UserModel;
-
+//using NPOI.SS.UserModel;
+//using NPOI.HSSF.UserModel;
+//using NPOI.XSSF.UserModel;
+//using Excel;
+//using System.Data;
 using System.Collections.Generic;
 using System.Text;
-
-public class ExcelImporterMaker : EditorWindow
+using System.Linq;
+using System.CodeDom.Compiler;
+using System.IO;
+using System.Diagnostics;
+using Debug = UnityEngine.Debug;
+/// <summary>
+///   excel基本结构：
+///   row0：注释
+///   row1：字段类型
+///   row2：字段名字
+///   row3~：数据
+/// </summary>
+/// 我只处理xlsx类型的文件
+public class ExcelProcesser : EditorWindow
 {
+    private string filePath = string.Empty;
+    private string fileName = string.Empty;
+    private static string s_key_prefix = "excel-importer-maker.";
+
+    //string fileName;
+    string scriptableObjectName
+    {
+        get
+        {
+            return fileName + "_list";
+        }
+    }
     private Vector2 curretScroll = Vector2.zero;
+
 
     void OnGUI()
     {
         GUILayout.Label("makeing importer", EditorStyles.boldLabel);
-        className = EditorGUILayout.TextField("class name", className);
-        sepalateSheet = EditorGUILayout.Toggle("sepalate sheet", sepalateSheet);
-
-        EditorPrefs.SetBool(s_key_prefix + fileName + ".separateSheet", sepalateSheet);
-
-        if (GUILayout.Button("create"))
+        //className = EditorGUILayout.TextField("class name", className);
+        EditorGUILayout.LabelField("class name", scriptableObjectName);
+        if (GUILayout.Button("Create"))
         {
-            EditorPrefs.SetString(s_key_prefix + fileName + ".className", className);
+            EditorPrefs.SetString(s_key_prefix + fileName + ".className", fileName);
             ExportEntity();
             ExportImporter();
-			
+
             AssetDatabase.ImportAsset(filePath);
             AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
             Close();
         }
 
-        // selecting sheets
 
-        EditorGUILayout.LabelField("sheet settings");
-        EditorGUILayout.BeginVertical("box");
-        foreach (ExcelSheetParameter sheet in sheetList)
-        {
-            GUILayout.BeginHorizontal();
-            sheet.isEnable = EditorGUILayout.BeginToggleGroup("enable", sheet.isEnable);
-            EditorGUILayout.LabelField(sheet.sheetName);
-            EditorGUILayout.EndToggleGroup();
-            EditorPrefs.SetBool(s_key_prefix + fileName + ".sheet." + sheet.sheetName, sheet.isEnable);
-            GUILayout.EndHorizontal();
-        }
-        EditorGUILayout.EndVertical();
-
-        // selecting parameters
         EditorGUILayout.LabelField("parameter settings");
         curretScroll = EditorGUILayout.BeginScrollView(curretScroll);
         EditorGUILayout.BeginVertical("box");
         string lastCellName = string.Empty;
         foreach (ExcelRowParameter cell in typeList)
         {
-            if (cell.isArray && lastCellName != null && cell.name.Equals(lastCellName))
-            {
-                continue;
-            }
-
-            cell.isEnable = EditorGUILayout.BeginToggleGroup("enable", cell.isEnable);
-            if (cell.isArray)
-            {
-                EditorGUILayout.LabelField("---[array]---");
-            }
             GUILayout.BeginHorizontal();
+            cell.type = EditorGUILayout.TextField(cell.type);
             cell.name = EditorGUILayout.TextField(cell.name);
-            cell.type = (ValueType)EditorGUILayout.EnumPopup(cell.type, GUILayout.MaxWidth(100));
-            EditorPrefs.SetInt(s_key_prefix + fileName + ".type." + cell.name, (int)cell.type);
+            EditorGUILayout.LabelField(cell.comment);
             GUILayout.EndHorizontal();
-			
-            EditorGUILayout.EndToggleGroup();
-            lastCellName = cell.name;
+
+            //EditorGUILayout.EndToggleGroup();
+            //lastCellName = cell.name;
         }
         EditorGUILayout.EndVertical();
         EditorGUILayout.EndScrollView();
-		
-    }	
-	
-    private enum ValueType
-    {
-        BOOL,
-        STRING,
-        INT,
-		FLOAT,
-		DOUBLE,
+
     }
-	
-    private string filePath = string.Empty;
-    private bool sepalateSheet = false;
-    private List<ExcelRowParameter> typeList = new List<ExcelRowParameter>();
-    private List<ExcelSheetParameter> sheetList = new List<ExcelSheetParameter>();
-    private string className = string.Empty;
-    private string fileName = string.Empty;
-    private static string s_key_prefix = "terasurware.exel-importer-maker.";
-	
-    [MenuItem("Assets/XLS XLSX Import Settings...")]
+
+    [MenuItem("Assets/Excel XLSX Import Settings...")]
     static void ExportExcelToAssetbundle()
     {
         foreach (Object obj in Selection.objects)
         {
-			
-		
-            var window = ScriptableObject.CreateInstance<ExcelImporterMaker>();
+            var window = ScriptableObject.CreateInstance<ExcelProcesser>();
             window.filePath = AssetDatabase.GetAssetPath(obj);
             window.fileName = Path.GetFileNameWithoutExtension(window.filePath);
-		
-		
-            using (FileStream stream = File.Open (window.filePath, FileMode.Open, FileAccess.Read))
+            using (FileStream stream = File.Open(window.filePath, FileMode.Open, FileAccess.Read))
             {
-                string ext = Path.GetExtension(window.filePath);
-                IWorkbook book = null;
-                if (ext==".xls")
-                    book = new HSSFWorkbook(stream);
-                else if (ext==".xlsx")
-                    book = new XSSFWorkbook(stream);
-                else
-                    Debug.LogError("wrong file");
-                
+                StreamReader sr = new StreamReader(stream);
+                string line1 = sr.ReadLine();
+                //Debug.Log(line);
+                string[] splits1 = line1.Split('\t');
+                string line2 = sr.ReadLine();
+                string[] splits2 = line2.Split('\t');
+                string line3 = sr.ReadLine();
+                string[] splits3 = line3.Split('\t');
 
-                for (int i = 0; i < book.NumberOfSheets; ++i)
+                for (int i = 0; i < splits1.Length;i++ )
                 {
-                    ISheet s = book.GetSheetAt(i);
-                    ExcelSheetParameter sht = new ExcelSheetParameter();
-                    sht.sheetName = s.SheetName;
-                    sht.isEnable = EditorPrefs.GetBool(s_key_prefix + window.fileName + ".sheet." + sht.sheetName, true);
-                    window.sheetList.Add(sht);
-                }
-			
-                ISheet sheet = book.GetSheetAt(0);
-
-                window.className = EditorPrefs.GetString(s_key_prefix + window.fileName + ".className", "Entity_" + sheet.SheetName);
-
-                window.sepalateSheet = EditorPrefs.GetBool(s_key_prefix + window.fileName + ".separateSheet");
-
-                IRow titleRow = sheet.GetRow(0);
-                IRow dataRow = sheet.GetRow(1);
-                for (int i=0; i < titleRow.LastCellNum; i++)
-                {
-                    ExcelRowParameter lastParser = null;
                     ExcelRowParameter parser = new ExcelRowParameter();
-                    parser.name = titleRow.GetCell(i).StringCellValue;
-                    parser.isArray = parser.name.Contains("[]");
-                    if (parser.isArray)
-                    {
-                        parser.name = parser.name.Remove(parser.name.LastIndexOf("[]"));
-                    }
+                    parser.comment = splits1[i];
+                    parser.type = "string"; //splits2[i];
+                    parser.name = splits3[i];
 
-                    ICell cell = dataRow.GetCell(i);
-
-                    // array support
-                    if (window.typeList.Count > 0)
-                    {
-                        lastParser = window.typeList [window.typeList.Count - 1];
-                        if (lastParser.isArray && parser.isArray && lastParser.name.Equals(parser.name))
-                        {
-                            // trailing array items must be the same as the top type
-                            parser.isEnable = lastParser.isEnable;
-                            parser.type = lastParser.type;
-                            lastParser.nextArrayItem = parser;
-                            window.typeList.Add(parser);
-                            continue;
-                        }
-                    }
-				
-                    if (cell.CellType != CellType.Unknown && cell.CellType != CellType.Blank)
-                    {
-                        parser.isEnable = true;
-
-                        try
-                        {
-                            if (EditorPrefs.HasKey(s_key_prefix + window.fileName + ".type." + parser.name))
-                            {
-                                parser.type = (ValueType)EditorPrefs.GetInt(s_key_prefix + window.fileName + ".type." + parser.name);
-                            } else
-                            {
-                                string sampling = cell.StringCellValue;
-                                parser.type = ValueType.STRING;
-                            }
-                        } catch
-                        {
-                        }
-                        try
-                        {
-                            if (EditorPrefs.HasKey(s_key_prefix + window.fileName + ".type." + parser.name))
-                            {
-                                parser.type = (ValueType)EditorPrefs.GetInt(s_key_prefix + window.fileName + ".type." + parser.name);
-                            } else
-                            {
-                                double sampling = cell.NumericCellValue;
-                                parser.type = ValueType.DOUBLE;
-                            }
-                        } catch
-                        {
-                        }
-                        try
-                        {
-                            if (EditorPrefs.HasKey(s_key_prefix + window.fileName + ".type." + parser.name))
-                            {
-                                parser.type = (ValueType)EditorPrefs.GetInt(s_key_prefix + window.fileName + ".type." + parser.name);
-                            } else
-                            {
-                                bool sampling = cell.BooleanCellValue;
-                                parser.type = ValueType.BOOL;
-                            }
-                        } catch
-                        {
-                        }
-                    }
-				
                     window.typeList.Add(parser);
                 }
-			
-                window.Show();
+
+
+                //string ext = Path.GetExtension(window.filePath);
+
+                //IExcelDataReader excelReader = ExcelReaderFactory.CreateOpenXmlReader(stream);
+                //System.Data.DataSet result = excelReader.AsDataSet();
+                //int columns = result.Tables[0].Columns.Count;
+                //int rows = result.Tables[0].Rows.Count;
+                //System.Data.DataTable sheet = result.Tables[0];
+                //System.Data.DataRow commentRow = sheet.Rows[0];
+                //System.Data.DataRow typeRow = sheet.Rows[1];
+                //System.Data.DataRow nameRow = sheet.Rows[2];
+                //for (int i = 0; i < columns; i++)
+                //{
+                //    ExcelRowParameter parser = new ExcelRowParameter();
+                //    parser.comment = commentRow[i].ToString();
+                //    parser.type = typeRow[i].ToString();
+                //    parser.name = nameRow[i].ToString();
+
+                //    window.typeList.Add(parser);
+                //}
+                //for (int i = 0; i < rows; i++)
+                //{
+                //    for (int j = 0; j < columns; j++)
+                //    {
+                //        string nvalue = result.Tables[0].Rows[i][j].ToString();
+                //        Debug.Log(nvalue);
+                //    }
+                //} 
+
+                //IWorkbook book = new XSSFWorkbook(stream);
+                //Debug.Log("XSSFWorkbook");
+                ////只处理第一张表
+                //ISheet sheet = book.GetSheetAt(0);
+                //window.className = EditorPrefs.GetString(s_key_prefix + window.fileName + ".className", "Entity_" + sheet.SheetName);
+                ////注释 
+                //IRow commentRow = sheet.GetRow(0);
+                //IRow typeRow = sheet.GetRow(1);
+                //IRow nameRow = sheet.GetRow(2);
+                //for (int i = 0; i < commentRow.LastCellNum; i++)
+                //{
+                //    ExcelRowParameter parser = new ExcelRowParameter();
+                //    ICell cell = commentRow.GetCell(i);
+                //    parser.comment = commentRow.GetCell(i).StringCellValue;
+                //    parser.type = typeRow.GetCell(i).StringCellValue;
+                //    parser.name = nameRow.GetCell(i).StringCellValue;
+
+                //    window.typeList.Add(parser);
+                //}
             }
+
+            window.Show();
+
         }
     }
+    private List<ExcelRowParameter> typeList = new List<ExcelRowParameter>();
 
     void ExportEntity()
     {
-        string templateFilePath = (sepalateSheet) ? "Assets/Terasurware/Editor/EntityTemplate2.txt" : "Assets/Terasurware/Editor/EntityTemplate.txt";
-        string entittyTemplate = File.ReadAllText(templateFilePath);
+        string entityTemplate = ExcelEditorSettings.entityTemplate;
         StringBuilder builder = new StringBuilder();
-        bool isInbetweenArray = false;
         foreach (ExcelRowParameter row in typeList)
         {
-            if (row.isEnable)
-            {
-                if (!row.isArray)
-                {
-                    builder.AppendLine();
-                    builder.AppendFormat("		public {0} {1};", row.type.ToString().ToLower(), row.name);
-                } else
-                {
-                    if (!isInbetweenArray)
-                    {
-                        builder.AppendLine();
-                        builder.AppendFormat("		public {0}[] {1};", row.type.ToString().ToLower(), row.name);
-                    } 
-                    isInbetweenArray = (row.nextArrayItem != null);
-                }
-            }
+            builder.AppendLine();
+            builder.AppendFormat("		public {0} {1};//{2}", row.type.ToLower(), row.name, row.comment);
         }
-		
-        entittyTemplate = entittyTemplate.Replace("$Types$", builder.ToString());
-        entittyTemplate = entittyTemplate.Replace("$ExcelData$", className);
-		
-        Directory.CreateDirectory("Assets/Terasurware/Classes/");
-        File.WriteAllText("Assets/Terasurware/Classes/" + className + ".cs", entittyTemplate);
+
+        entityTemplate = entityTemplate.Replace("$Types$", builder.ToString());
+        entityTemplate = entityTemplate.Replace("$Class$", fileName);
+        entityTemplate = entityTemplate.Replace("$ScriptableObject$", scriptableObjectName);
+
+        Directory.CreateDirectory("Assets/Excel/GenerateClasses/");
+        File.WriteAllText("Assets/Excel/GenerateClasses/" + scriptableObjectName + ".cs", entityTemplate);
     }
-	
     void ExportImporter()
     {
-        string templateFilePath = (sepalateSheet) ? "Assets/Terasurware/Editor/ExportTemplate2.txt" : "Assets/Terasurware/Editor/ExportTemplate.txt";
+        string importerTemplate = ExcelEditorSettings.exportTemplate;
 
-        string importerTemplate = File.ReadAllText(templateFilePath);
-		
         StringBuilder builder = new StringBuilder();
         StringBuilder sheetListbuilder = new StringBuilder();
-        int rowCount = 0;
         string tab = "					";
-        bool isInbetweenArray = false;
 
-        //public string[] sheetNames = {"hoge", "fuga"};
-        //$SheetList$
-        foreach (ExcelSheetParameter sht in sheetList)
-        {
-            if (sht.isEnable)
-            {
-                sheetListbuilder.Append("\"" + sht.sheetName + "\",");
-            }
-            /*
-            if (sht != sheetList [sheetList.Count - 1])
-            {
-                sheetListbuilder.Append(",");
-            }
-            */
-        }
-		
+        int rowCount = 0;
         foreach (ExcelRowParameter row in typeList)
         {
-            if (row.isEnable)
+            builder.AppendLine();
+            switch (row.type)
             {
-                if (!row.isArray)
-                {
-                    builder.AppendLine();
-                    switch (row.type)
-                    {
-                        case ValueType.BOOL:
-                            builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0} = (cell == null ? false : cell.BooleanCellValue);", row.name, rowCount);
-                            break;
-                        case ValueType.DOUBLE:
-                            builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0} = (cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount);
-                            break;
-                        case ValueType.INT:
-                            builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0} = (int)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
-                            break;
-						case ValueType.FLOAT:
-							builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0} = (float)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
-							break;
-						case ValueType.STRING:
-                            builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0} = (cell == null ? \"\" : cell.StringCellValue);", row.name, rowCount);
-                            break;
-					}
-                } else
-                {
-                    // only the head of array should generate code
+                case "bool":
+                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = bool.Parse(splits[{1}]);", row.name, rowCount);
+                    break;
+                case "double":
+                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = double.Parse(splits[{1}]);", row.name, rowCount);
+                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount);
+                    break;
+                case "int":
+                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = int.Parse(splits[{1}]);", row.name, rowCount);
+                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (int)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
+                    break;
+                case "float":
+                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = float.Parse(splits[{1}]);", row.name, rowCount);
+                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (float)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
+                    break;
+                case "string":
+                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = splits[{1}];", row.name, rowCount);
+                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.String);p.{0} = (cell == null ? \"\" : cell.StringCellValue);", row.name, rowCount);
+                    break;
+                case "int[]":
 
-                    if (!isInbetweenArray)
-                    {
-                        int arrayLength = 0;
-                        for (ExcelRowParameter r = row; r != null; r = r.nextArrayItem, ++arrayLength)
-                        {
-                        }
+                    break;
+                case "string[]":
 
-                        builder.AppendLine();
-                        switch (row.type)
-                        {
-                            case ValueType.BOOL:
-                                builder.AppendFormat(tab + "p.{0} = new bool[{1}];", row.name, arrayLength);
-                                break;
-                            case ValueType.DOUBLE:
-                                builder.AppendFormat(tab + "p.{0} = new double[{1}];", row.name, arrayLength);
-                                break;
-                            case ValueType.INT:
-                                builder.AppendFormat(tab + "p.{0} = new int[{1}];", row.name, arrayLength);
-                                break;
-							case ValueType.FLOAT:
-								builder.AppendFormat(tab + "p.{0} = new float[{1}];", row.name, arrayLength);
-								break;
-                            case ValueType.STRING:
-                                builder.AppendFormat(tab + "p.{0} = new string[{1}];", row.name, arrayLength);
-                                break;
-                        }
-						
-                        for (int i = 0; i < arrayLength; ++i)
-                        {
-                            builder.AppendLine();
-                            switch (row.type)
-                            {
-                                case ValueType.BOOL:
-                                    builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0}[{2}] = (cell == null ? false : cell.BooleanCellValue);", row.name, rowCount + i, i);
-                                    break;
-                                case ValueType.DOUBLE:
-                                    builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0}[{2}] = (cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount + i, i);
-                                    break;
-                                case ValueType.INT:
-                                    builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0}[{2}] = (int)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount + i, i);
-									break;
-								case ValueType.FLOAT:
-									builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0}[{2}] = (float)(cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount + i, i);
-									break;
-                                case ValueType.STRING:
-                                    builder.AppendFormat(tab + "cell = row.GetCell({1}); p.{0}[{2}] = (cell == null ? \"\" : cell.StringCellValue);", row.name, rowCount + i, i);
-                                    break;
-                            }
-                        }
-                    }
-                    isInbetweenArray = (row.nextArrayItem != null);
-                }
+                    break;
             }
             rowCount += 1;
         }
 
-        importerTemplate = importerTemplate.Replace("$IMPORT_PATH$", filePath);
-        importerTemplate = importerTemplate.Replace("$ExportAssetDirectry$", Path.GetDirectoryName(filePath));
-        importerTemplate = importerTemplate.Replace("$EXPORT_PATH$", Path.ChangeExtension(filePath, ".asset"));
-        importerTemplate = importerTemplate.Replace("$ExcelData$", className);
-        importerTemplate = importerTemplate.Replace("$SheetList$", sheetListbuilder.ToString());
+        importerTemplate = importerTemplate.Replace("$ExcelPath$", filePath);
+        importerTemplate = importerTemplate.Replace("$ScriptableObject$", scriptableObjectName);
+        importerTemplate = importerTemplate.Replace("$ClassName$", fileName);
+        importerTemplate = importerTemplate.Replace("$FileName$", fileName);
         importerTemplate = importerTemplate.Replace("$EXPORT_DATA$", builder.ToString());
-        importerTemplate = importerTemplate.Replace("$ExportTemplate$", fileName + "_importer");
-			
+
         Directory.CreateDirectory("Assets/Terasurware/Classes/Editor/");
         File.WriteAllText("Assets/Terasurware/Classes/Editor/" + fileName + "_importer.cs", importerTemplate);
-    }
-	
-    private class ExcelSheetParameter
-    {
-        public string sheetName;
-        public bool isEnable;
     }
 
     private class ExcelRowParameter
     {
-        public ValueType type;
+        public string comment;
+        public string type;
         public string name;
-        public bool isEnable;
-        public bool isArray;
-        public ExcelRowParameter nextArrayItem;
     }
 }
