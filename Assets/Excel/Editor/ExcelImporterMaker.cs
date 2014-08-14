@@ -95,64 +95,38 @@ public class ExcelProcesser : EditorWindow
                 string line3 = sr.ReadLine();
                 string[] splits3 = line3.Split('\t');
 
-                for (int i = 0; i < splits1.Length;i++ )
+                string data = sr.ReadLine();
+                string[] dataSplit = data.Split('\t');
+                for (int i = 0; i < splits1.Length; i++)
                 {
                     ExcelRowParameter parser = new ExcelRowParameter();
                     parser.comment = splits1[i];
-                    parser.type = "string"; //splits2[i];
+                    parser.type = splits2[i];
+                    bool isArray = dataSplit[i].Split('|').Length > 1;
+                    bool isFloat = dataSplit[i].Contains('.');
+                    switch (parser.type)
+                    {
+                        case "int"://策划有可能填错
+                            if (isArray && isFloat)
+                                parser.type = "float[]";
+                            else if (isArray)
+                                parser.type = "int[]";
+                            else if (isFloat)
+                                parser.type = "float";
+                            break;
+                        case "float":
+                            if (isArray)
+                                parser.type = "float[]";
+                            break;
+                        case "string":
+                            if (isArray)
+                                parser.type = "string[]";
+                            break;
+                    }
                     parser.name = splits3[i];
 
                     window.typeList.Add(parser);
                 }
-
-
-                //string ext = Path.GetExtension(window.filePath);
-
-                //IExcelDataReader excelReader = ExcelReaderFactory.CreateOpenXmlReader(stream);
-                //System.Data.DataSet result = excelReader.AsDataSet();
-                //int columns = result.Tables[0].Columns.Count;
-                //int rows = result.Tables[0].Rows.Count;
-                //System.Data.DataTable sheet = result.Tables[0];
-                //System.Data.DataRow commentRow = sheet.Rows[0];
-                //System.Data.DataRow typeRow = sheet.Rows[1];
-                //System.Data.DataRow nameRow = sheet.Rows[2];
-                //for (int i = 0; i < columns; i++)
-                //{
-                //    ExcelRowParameter parser = new ExcelRowParameter();
-                //    parser.comment = commentRow[i].ToString();
-                //    parser.type = typeRow[i].ToString();
-                //    parser.name = nameRow[i].ToString();
-
-                //    window.typeList.Add(parser);
-                //}
-                //for (int i = 0; i < rows; i++)
-                //{
-                //    for (int j = 0; j < columns; j++)
-                //    {
-                //        string nvalue = result.Tables[0].Rows[i][j].ToString();
-                //        Debug.Log(nvalue);
-                //    }
-                //} 
-
-                //IWorkbook book = new XSSFWorkbook(stream);
-                //Debug.Log("XSSFWorkbook");
-                ////只处理第一张表
-                //ISheet sheet = book.GetSheetAt(0);
-                //window.className = EditorPrefs.GetString(s_key_prefix + window.fileName + ".className", "Entity_" + sheet.SheetName);
-                ////注释 
-                //IRow commentRow = sheet.GetRow(0);
-                //IRow typeRow = sheet.GetRow(1);
-                //IRow nameRow = sheet.GetRow(2);
-                //for (int i = 0; i < commentRow.LastCellNum; i++)
-                //{
-                //    ExcelRowParameter parser = new ExcelRowParameter();
-                //    ICell cell = commentRow.GetCell(i);
-                //    parser.comment = commentRow.GetCell(i).StringCellValue;
-                //    parser.type = typeRow.GetCell(i).StringCellValue;
-                //    parser.name = nameRow.GetCell(i).StringCellValue;
-
-                //    window.typeList.Add(parser);
-                //}
             }
 
             window.Show();
@@ -193,29 +167,39 @@ public class ExcelProcesser : EditorWindow
             switch (row.type)
             {
                 case "bool":
-                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = bool.Parse(splits[{1}]);", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<bool>(splits,{1});", row.name, rowCount);
                     break;
-                case "double":
-                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = double.Parse(splits[{1}]);", row.name, rowCount);
-                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount);
-                    break;
+                //case "double":
+                //    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<bool>(splits,{1});", row.name, rowCount);
+                //    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = double.Parse(splits[{1}]);", row.name, rowCount);
+                //    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount);
+                //    break;
                 case "int":
-                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = int.Parse(splits[{1}]);", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<int>(splits,{1});", row.name, rowCount);
+                    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = int.Parse(splits[{1}]);", row.name, rowCount);
                     //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (int)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
                     break;
                 case "float":
-                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = float.Parse(splits[{1}]);", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<float>(splits,{1});", row.name, rowCount);
+                    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = float.Parse(splits[{1}]);", row.name, rowCount);
                     //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (float)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
                     break;
                 case "string":
-                    builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = splits[{1}];", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<string>(splits,{1});", row.name, rowCount);
+                    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = splits[{1}];", row.name, rowCount);
                     //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.String);p.{0} = (cell == null ? \"\" : cell.StringCellValue);", row.name, rowCount);
                     break;
+                case "bool[]":
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellBoolArray(splits,{1});", row.name, rowCount);
+                    break;
                 case "int[]":
-
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellIntArray(splits,{1});", row.name, rowCount);
+                    break;
+                case "float[]":
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellFloatArray(splits,{1});", row.name, rowCount);
                     break;
                 case "string[]":
-
+                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellStringArray(splits,{1});", row.name, rowCount);
                     break;
             }
             rowCount += 1;
@@ -227,8 +211,8 @@ public class ExcelProcesser : EditorWindow
         importerTemplate = importerTemplate.Replace("$FileName$", fileName);
         importerTemplate = importerTemplate.Replace("$EXPORT_DATA$", builder.ToString());
 
-        Directory.CreateDirectory("Assets/Terasurware/Classes/Editor/");
-        File.WriteAllText("Assets/Terasurware/Classes/Editor/" + fileName + "_importer.cs", importerTemplate);
+        Directory.CreateDirectory("Assets/Excel/GenerateClasses/Editor/");
+        File.WriteAllText("Assets/Excel/GenerateClasses/Editor/" + fileName + "_importer.cs", importerTemplate);
     }
 
     private class ExcelRowParameter
