@@ -76,7 +76,7 @@ public class ExcelProcesser : EditorWindow
 
     }
 
-    [MenuItem("Assets/Excel XLSX Import Settings...")]
+    [MenuItem("Assets/Excel/Excel XLSX Import Settings...")]
     static void ExportExcelToAssetbundle()
     {
         foreach (Object obj in Selection.objects)
@@ -88,42 +88,45 @@ public class ExcelProcesser : EditorWindow
             {
                 StreamReader sr = new StreamReader(stream);
                 string line1 = sr.ReadLine();
-                //Debug.Log(line);
-                string[] splits1 = line1.Split('\t');
+                string[] comments = line1.Split('\t');//comment
                 string line2 = sr.ReadLine();
-                string[] splits2 = line2.Split('\t');
+                string[] types = line2.Split('\t');//type
+                foreach (var item in types)
+                {
+                    item.Trim('\n');
+                }
                 string line3 = sr.ReadLine();
-                string[] splits3 = line3.Split('\t');
+                string[] names = line3.Split('\t');//name
 
                 string data = sr.ReadLine();
                 string[] dataSplit = data.Split('\t');
-                for (int i = 0; i < splits1.Length; i++)
+                for (int i = 0; i < names.Length; i++)
                 {
                     ExcelRowParameter parser = new ExcelRowParameter();
-                    parser.comment = splits1[i];
-                    parser.type = splits2[i];
-                    bool isArray = dataSplit[i].Split('|').Length > 1;
-                    bool isFloat = dataSplit[i].Contains('.');
-                    switch (parser.type)
-                    {
-                        case "int"://策划有可能填错
-                            if (isArray && isFloat)
-                                parser.type = "float[]";
-                            else if (isArray)
-                                parser.type = "int[]";
-                            else if (isFloat)
-                                parser.type = "float";
-                            break;
-                        case "float":
-                            if (isArray)
-                                parser.type = "float[]";
-                            break;
-                        case "string":
-                            if (isArray)
-                                parser.type = "string[]";
-                            break;
-                    }
-                    parser.name = splits3[i];
+                    parser.comment = comments[i];
+                    parser.type = types[i];
+                    //bool isArray = dataSplit[i].Split('|').Length > 1;
+                    //bool isFloat = dataSplit[i].Contains('.');
+                    //switch (parser.type)
+                    //{
+                    //    case "int"://策划有可能填错
+                    //        if (isArray && isFloat)
+                    //            parser.type = "float[]";
+                    //        else if (isArray)
+                    //            parser.type = "int[]";
+                    //        else if (isFloat)
+                    //            parser.type = "float";
+                    //        break;
+                    //    case "float":
+                    //        if (isArray)
+                    //            parser.type = "float[]";
+                    //        break;
+                    //    case "string":
+                    //        if (isArray)
+                    //            parser.type = "string[]";
+                    //        break;
+                    //}
+                    parser.name = names[i];
 
                     window.typeList.Add(parser);
                 }
@@ -141,13 +144,50 @@ public class ExcelProcesser : EditorWindow
         StringBuilder builder = new StringBuilder();
         foreach (ExcelRowParameter row in typeList)
         {
-            builder.AppendLine();
             builder.AppendFormat("		public {0} {1};//{2}", row.type.ToLower(), row.name, row.comment);
+            builder.AppendLine();
         }
 
         entityTemplate = entityTemplate.Replace("$Types$", builder.ToString());
         entityTemplate = entityTemplate.Replace("$Class$", fileName);
         entityTemplate = entityTemplate.Replace("$ScriptableObject$", scriptableObjectName);
+
+        StringBuilder builder2 = new StringBuilder();
+        string tab = "            ";
+        int rowCount = 0;
+        foreach (ExcelRowParameter row in typeList)
+        {
+            builder2.AppendLine();
+            switch (row.type)
+            {
+                case "bool":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<bool>(splits,{1});", row.name, rowCount);
+                    break;
+                case "int":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<int>(splits,{1});", row.name, rowCount);
+                    break;
+                case "float":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<float>(splits,{1});", row.name, rowCount);
+                    break;
+                case "string":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<string>(splits,{1});", row.name, rowCount);
+                    break;
+                case "bool[]":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellBoolArray(splits,{1});", row.name, rowCount);
+                    break;
+                case "int[]":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellIntArray(splits,{1});", row.name, rowCount);
+                    break;
+                case "float[]":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellFloatArray(splits,{1});", row.name, rowCount);
+                    break;
+                case "string[]":
+                    builder2.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellStringArray(splits,{1});", row.name, rowCount);
+                    break;
+            }
+            rowCount += 1;
+        }
+        entityTemplate = entityTemplate.Replace("$EXPORT_DATA$", builder2.ToString());
 
         Directory.CreateDirectory("Assets/Excel/GenerateClasses/");
         File.WriteAllText("Assets/Excel/GenerateClasses/" + scriptableObjectName + ".cs", entityTemplate);
@@ -158,7 +198,7 @@ public class ExcelProcesser : EditorWindow
 
         StringBuilder builder = new StringBuilder();
         StringBuilder sheetListbuilder = new StringBuilder();
-        string tab = "					";
+        string tab = "			";
 
         int rowCount = 0;
         foreach (ExcelRowParameter row in typeList)
@@ -167,39 +207,28 @@ public class ExcelProcesser : EditorWindow
             switch (row.type)
             {
                 case "bool":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<bool>(splits,{1});", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<bool>(splits,{1},{2},\"{0}\");", row.name, rowCount);
                     break;
-                //case "double":
-                //    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<bool>(splits,{1});", row.name, rowCount);
-                //    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = double.Parse(splits[{1}]);", row.name, rowCount);
-                //    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (cell == null ? 0.0 : cell.NumericCellValue);", row.name, rowCount);
-                //    break;
                 case "int":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<int>(splits,{1});", row.name, rowCount);
-                    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = int.Parse(splits[{1}]);", row.name, rowCount);
-                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (int)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<int>(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "float":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<float>(splits,{1});", row.name, rowCount);
-                    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = float.Parse(splits[{1}]);", row.name, rowCount);
-                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.Numeric);p.{0} = (float)(cell == null ? 0 : cell.NumericCellValue);", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<float>(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "string":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCell<string>(splits,{1});", row.name, rowCount);
-                    //builder.AppendFormat(tab + "if (!string.IsNullOrEmpty(splits[{1}])) p.{0} = splits[{1}];", row.name, rowCount);
-                    //builder.AppendFormat(tab + "cell = row.GetCell({1}); cell.SetCellType(CellType.String);p.{0} = (cell == null ? \"\" : cell.StringCellValue);", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<string>(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "bool[]":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellBoolArray(splits,{1});", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellBoolArray(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "int[]":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellIntArray(splits,{1});", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellIntArray(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "float[]":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellFloatArray(splits,{1});", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellFloatArray(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "string[]":
-                    builder.AppendFormat(tab + "p.{0} =ExcelEditorTools.GetDataCellStringArray(splits,{1});", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCellStringArray(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
             }
             rowCount += 1;
