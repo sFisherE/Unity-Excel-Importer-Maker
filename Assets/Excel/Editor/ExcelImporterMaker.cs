@@ -207,7 +207,7 @@ public class ExcelProcesser : EditorWindow
             switch (row.type)
             {
                 case "bool":
-                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<bool>(splits,{1},{2},\"{0}\");", row.name, rowCount);
+                    builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<bool>(splits,{1},\"{0}\");", row.name, rowCount);
                     break;
                 case "int":
                     builder.AppendFormat(tab + "p.{0} =ExcelTools.GetDataCell<int>(splits,{1},\"{0}\");", row.name, rowCount);
